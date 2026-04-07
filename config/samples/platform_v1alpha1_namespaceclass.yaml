@@ -1,0 +1,82 @@
+---
+apiVersion: platform.akuity.io/v1alpha1
+kind: NamespaceClass
+metadata:
+  name: public-network
+spec:
+  resources:
+    - apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        name: allow-public-ingress
+      spec:
+        podSelector: {}
+        ingress:
+          - {}
+    - apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: public-sa
+    - apiVersion: v1
+      kind: LimitRange
+      metadata:
+        name: default-limits
+      spec:
+        limits:
+          - type: Container
+            default:
+              cpu: "500m"
+              memory: "256Mi"
+            defaultRequest:
+              cpu: "100m"
+              memory: "64Mi"
+---
+apiVersion: platform.akuity.io/v1alpha1
+kind: NamespaceClass
+metadata:
+  name: internal-network
+spec:
+  resources:
+    - apiVersion: networking.k8s.io/v1
+      kind: NetworkPolicy
+      metadata:
+        name: allow-vpn-only
+      spec:
+        podSelector: {}
+        ingress:
+          - from:
+              - ipBlock:
+                  cidr: 10.0.0.0/8
+        egress:
+          - to:
+              - ipBlock:
+                  cidr: 10.0.0.0/8
+    - apiVersion: v1
+      kind: ResourceQuota
+      metadata:
+        name: internal-quota
+      spec:
+        hard:
+          pods: "20"
+          requests.cpu: "4"
+          requests.memory: 4Gi
+          limits.cpu: "8"
+          limits.memory: 8Gi
+---
+# Example Namespace that uses the public-network class.
+# The controller will create all resources from the public-network NamespaceClass
+# inside this namespace.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: web-portal
+  labels:
+    namespaceclass.akuity.io/name: public-network
+---
+# Example Namespace that uses the internal-network class.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: internal-service
+  labels:
+    namespaceclass.akuity.io/name: internal-network
