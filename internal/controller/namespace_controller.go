@@ -159,7 +159,7 @@ func (r *NamespaceReconciler) applyResources(ctx context.Context, namespace, cla
 		obj.SetLabels(labels)
 
 		log.Info("Applying resource", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
-		if err := r.Patch(ctx, obj, client.Apply, client.FieldOwner(fieldManager), client.ForceOwnership); err != nil {
+		if err := r.Apply(ctx, client.ApplyConfigurationFromUnstructured(obj), client.FieldOwner(fieldManager), client.ForceOwnership); err != nil {
 			return fmt.Errorf("applying %s/%s: %w", obj.GetKind(), obj.GetName(), err)
 		}
 	}
