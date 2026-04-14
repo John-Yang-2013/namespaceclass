@@ -96,8 +96,19 @@ func (r *NamespaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		nc := &platformv1alpha1.NamespaceClass{}
 		if err := r.Get(ctx, types.NamespacedName{Name: currentClass}, nc); err != nil {
 			if errors.IsNotFound(err) {
-				log.Info("NamespaceClass not found, requeueing", "class", currentClass)
-				return ctrl.Result{}, fmt.Errorf("NamespaceClass %q not found", currentClass)
+				log.Info("NamespaceClass not found, cleaning up resources", "class", currentClass)
+				if err := r.deleteResourcesForClass(ctx, ns.Name, currentClass); err != nil {
+					return ctrl.Result{}, fmt.Errorf("cleaning up deleted class %q: %w", currentClass, err)
+				}
+				nsCopy := ns.DeepCopy()
+				if nsCopy.Annotations == nil {
+					nsCopy.Annotations = map[string]string{}
+				}
+				delete(nsCopy.Annotations, AnnotationAppliedClass)
+				if err := r.Patch(ctx, nsCopy, client.MergeFrom(ns)); err != nil {
+					return ctrl.Result{}, fmt.Errorf("updating applied-class annotation after class deletion: %w", err)
+				}
+				return ctrl.Result{}, nil
 			}
 			return ctrl.Result{}, err
 		}
